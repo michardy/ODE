@@ -1,15 +1,22 @@
-use std::num::NonZeroU64;
+use {
+	byteorder::{BigEndian, LittleEndian},
+	zerocopy::{
+		byteorder::U64, AsBytes, FromBytes, LayoutVerified, Unaligned, U16, U32,
+	}
+};
 
-pub struct Part {
+#[derive(FromBytes, AsBytes, Unaligned)]
+#[repr(C)]
+pub struct Fragment {
 	/// ID of IO handler
 	/// Adding a 1 to the highest bit causes retention
 	/// to backing store
-	handler: u64,
+	handler: U64<BigEndian>,
 	/// Path ID fragment
-	id: [u8;128],
+	slug: [u8;128],
 	/// Optional interpreter
 	/// Zero for any
-	interp: Option<NonZeroU64>
+	interp: U64<BigEndian>
 }
 
-pub type Path = Vec<Part>;
+pub type Path = Vec<Fragment>;
