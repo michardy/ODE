@@ -1,6 +1,7 @@
 mod node;
 mod path;
 mod nativestore;
+mod network;
 mod operror;
 
 #[macro_use]

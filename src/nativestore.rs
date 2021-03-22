@@ -11,7 +11,9 @@ use {
 	byteorder::{BigEndian, LittleEndian},
 	zerocopy::{
 		byteorder::U64, AsBytes, FromBytes, LayoutVerified, Unaligned, U16, U32, U128
-	}
+	},
+	sha3::{Digest, Sha3_256},
+	serde::{Serialize, Deserialize}
 };
 
 
@@ -28,7 +30,7 @@ const GCRC_TREE: &[u8; 22] = b"NATIVESTORE_GCRC_INDEX";
 
 const BLOCK_SIZE: usize = 1024;
 
-#[derive(FromBytes, AsBytes, Unaligned)]
+#[derive(FromBytes, AsBytes, Unaligned, Serialize, Deserialize)]
 #[repr(C)]
 /// Fragment for nativestore
 /// Since we know the storage we don't track it
@@ -38,12 +40,13 @@ struct NativeFragment{
 	format: U64<BigEndian>
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct NativeNode{
 	/// Key of parent
 	parent: Option<NativeFragment>,
 	/// Internal ID
 	/// First part of child keys
-	id: U128<LittleEndian>,
+	id: u128,
 	/// Second part of child keys
 	children: Vec<Fragment>,
 	/// Hashes of data blocks or Objects
@@ -58,13 +61,13 @@ impl Node for NativeNode {
 		self.children
 	}
 	fn read(self, start: usize, len: usize) -> Result<Vec<u8>, Box<dyn Error>> {
-		if (self.data.len() > 0) {
+		if self.data.len() > 0 {
 			let mut index = start/BLOCK_SIZE;
 			let mut off = start%BLOCK_SIZE;
 			let obj_tree = DB.open_tree(OBJT_TREE)
 				.expect("Failure opening the object tree");
 			let mut out: Vec<u8> = Vec::new();
-			while (index >= self.data.len() && out.len() < len) {
+			while index <= self.data.len() && out.len() < len {
 				match obj_tree.get(self.data[index]) {
 					Ok(op) => match op {
 						Some(v) => out.append(&mut(v.subslice(
@@ -90,6 +93,64 @@ impl Node for NativeNode {
 			Ok(out)
 		} else {
 			Ok(Vec::new())
+		}
+	}
+	fn write(self, start: usize, data: Vec<u8>) -> Result<usize, Box<dyn Error>> {
+		if data.len() > 0 {
+			let mut index = start/BLOCK_SIZE;
+			let mut off = start%BLOCK_SIZE;
+			let mut read_off: usize = 0;
+			let obj_tree = DB.open_tree(OBJT_TREE)
+				.expect("Failure opening the object tree");
+			while index <= self.data.len() {
+				let mut object = Vec::new();
+				match obj_tree.get(self.data[index]) {
+					Ok(op) => match op {
+						Some(v) => object = v[..].into(),
+						None => return Err(
+							Box::new(OperationError::InternalStoreError(
+								"Nativestore inconsistancy (rebuild indexes)"
+							))
+						)
+					},
+					Err(_) => return Err(
+						Box::new(
+							OperationError::InternalStoreError("Sled error")
+						)
+					)
+				}
+				let ilen = object.len();
+				if off < ilen {
+					object.splice(off..ilen, data[..read_off+(ilen-off)].iter().cloned());
+					object.extend_from_slice(&data[read_off+(ilen-off)..read_off+(BLOCK_SIZE-off)]);
+				} else if off == ilen {
+					object.extend_from_slice(&data[read_off+(ilen-off)..read_off+(BLOCK_SIZE-off)]);
+				} else {
+					return Err(
+						Box::new(OperationError::InternalStoreError(
+							"Nativestore has not yet implimented writes past EOF"
+						))
+					)
+				}
+				let mut hasher = Sha3_256::new();
+				hasher.update(object[..].iter());
+				let name = hasher.finalize();
+				match obj_tree.insert(name, object) {
+					// !!The interior Option may need to be checked!!
+					Ok(_) => {},
+					Err(_) => return Err(
+							Box::new(
+								OperationError::InternalStoreError("Sled error")
+							)
+						)
+				}
+				off = 0;
+				index += 1;
+				read_off += BLOCK_SIZE-off;
+			}
+			Ok(data.len())
+		} else {
+			Ok(0)
 		}
 	}
 }
