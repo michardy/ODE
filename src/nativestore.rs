@@ -8,12 +8,9 @@ use crate::{
 use std::error::Error;
 
 use {
-	byteorder::{BigEndian, LittleEndian},
-	zerocopy::{
-		byteorder::U64, AsBytes, FromBytes, LayoutVerified, Unaligned, U16, U32, U128
-	},
 	sha3::{Digest, Sha3_256},
-	serde::{Serialize, Deserialize}
+	serde::{Serialize, Deserialize},
+	serde_big_array::BigArray
 };
 
 
@@ -30,14 +27,14 @@ const GCRC_TREE: &[u8; 22] = b"NATIVESTORE_GCRC_INDEX";
 
 const BLOCK_SIZE: usize = 1024;
 
-#[derive(FromBytes, AsBytes, Unaligned, Serialize, Deserialize)]
-#[repr(C)]
+#[derive(Serialize, Deserialize)]
 /// Fragment for nativestore
 /// Since we know the storage we don't track it
 struct NativeFragment{
-	parent: U128<LittleEndian>,
+	parent: u128,
+	#[serde(with = "BigArray")]
 	slug: [u8; 128],
-	format: U64<BigEndian>
+	format: u64
 }
 
 #[derive(Serialize, Deserialize)]
@@ -50,6 +47,7 @@ pub struct NativeNode{
 	/// Second part of child keys
 	children: Vec<Fragment>,
 	/// Hashes of data blocks or Objects
+	#[serde(with = "BigArray")]
 	data: Vec<[u8; 256]>
 }
 
