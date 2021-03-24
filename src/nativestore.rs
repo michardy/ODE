@@ -9,8 +9,7 @@ use std::error::Error;
 
 use {
 	sha3::{Digest, Sha3_256},
-	serde::{Serialize, Deserialize},
-	serde_big_array::BigArray
+	serde::{Serialize, Deserialize}
 };
 
 
@@ -30,32 +29,36 @@ const BLOCK_SIZE: usize = 1024;
 #[derive(Serialize, Deserialize)]
 /// Fragment for nativestore
 /// Since we know the storage we don't track it
-struct NativeFragment{
+struct NativeFragment {
 	parent: u128,
-	#[serde(with = "BigArray")]
-	slug: [u8; 128],
+	#[serde(with = "serde_bytes")]
+	slug: Vec<u8>,
 	format: u64
 }
 
+#[typetag::serde]
+impl Fragment for NativeFragment {}
+
 #[derive(Serialize, Deserialize)]
-pub struct NativeNode{
+pub struct NativeNode {
 	/// Key of parent
 	parent: Option<NativeFragment>,
 	/// Internal ID
 	/// First part of child keys
 	id: u128,
 	/// Second part of child keys
-	children: Vec<Fragment>,
+	children: Vec<Box<dyn Fragment>>,
+	// TODO: figure out a way to make this a bytearray
 	/// Hashes of data blocks or Objects
-	#[serde(with = "BigArray")]
-	data: Vec<[u8; 256]>
+	data: Vec<Vec<u8>>
 }
 
+#[typetag::serde]
 impl Node for NativeNode {
-	fn get_node(self, fragment: Fragment) -> Box<dyn Node> {
+	fn get_node(self, fragment:&dyn Fragment) -> Box<dyn Node> {
 		Box::new(self)
 	}
-	fn get_nodes(self) -> Vec<Fragment> {
+	fn get_nodes(self) -> Vec<Box<dyn Fragment>> {
 		self.children
 	}
 	fn read(self, start: usize, len: usize) -> Result<Vec<u8>, Box<dyn Error>> {
@@ -66,7 +69,7 @@ impl Node for NativeNode {
 				.expect("Failure opening the object tree");
 			let mut out: Vec<u8> = Vec::new();
 			while index <= self.data.len() && out.len() < len {
-				match obj_tree.get(self.data[index]) {
+				match obj_tree.get(&self.data[index]) {
 					Ok(op) => match op {
 						Some(v) => out.append(&mut(v.subslice(
 								off,
@@ -102,7 +105,7 @@ impl Node for NativeNode {
 				.expect("Failure opening the object tree");
 			while index <= self.data.len() {
 				let mut object = Vec::new();
-				match obj_tree.get(self.data[index]) {
+				match obj_tree.get(&self.data[index]) {
 					Ok(op) => match op {
 						Some(v) => object = v[..].into(),
 						None => return Err(
