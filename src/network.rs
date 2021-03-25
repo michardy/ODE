@@ -64,7 +64,7 @@ impl PersistentRoot {
 }
 
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Root {
 	network: Vec<u8>,
 	name: Vec<u8>,
