@@ -1,3 +1,5 @@
+use sled::IVec;
+
 use crate::{
 	node::{Node,Object},
 	path::{Fragment,Path},
@@ -16,30 +18,44 @@ use {
 const NET_PERSIST_ROOT: &[u8; 34] = b"NETWORK_ROOT_PERSISTANCE_STRUCTURE";
 
 #[derive(Serialize, Deserialize)]
-struct PersistantRoot {
+struct PersistentRoot {
 	network: String,
 	name: String,
 }
 
-impl PersistantRoot {
-	fn create() -> PersistantRoot {
+impl PersistentRoot {
+	fn create() -> PersistentRoot {
 		// Placeholder
 		// TODO: look for settings
-		PersistantRoot {
+		PersistentRoot {
 			network: "example.com".to_string(),
 			name: "starter".to_string()
 		}
 	}
-	fn find_or_create() -> PersistantRoot {
+	fn find_or_create() -> PersistentRoot {
+		println!("PersistentRoot find_or_create");
 		let obj_tree = DB.open_tree(BOOT_TREE)
 			.expect("Failure opening the object tree");
 		match obj_tree.get(NET_PERSIST_ROOT) {
 			Ok(op) => match op {
 				Some(v) => {
+					println!("Deserialize existing");
 					ron::de::from_bytes(&v[..]).expect("PersistantRoot corruption")
 				},
 				None => {
-					PersistantRoot::create()
+					let out = PersistentRoot::create();
+					let mut owriter: Vec<u8> = Vec::new();
+					ron::ser::to_writer(
+						&mut owriter,
+						&out
+					).expect("Could not serialize PersistentRoot");
+					println!("create new");
+					obj_tree.insert(
+						NET_PERSIST_ROOT,
+						owriter
+					).expect("Could not init PersistentRoot");
+					obj_tree.flush().expect("could not flush");
+					out
 				}
 			},
 			Err(_) => panic!("Sled error")
@@ -49,15 +65,16 @@ impl PersistantRoot {
 
 
 #[derive(Serialize, Deserialize)]
-struct Root {
+pub struct Root {
 	network: Vec<u8>,
 	name: Vec<u8>,
 	//conn_cache: HashMap<[u8; 128], Handler>
 }
 
 impl Root {
-	fn find_or_create<'a>() -> Root {
-		let proot = PersistantRoot::find_or_create();
+	pub fn find_or_create<'a>() -> Root {
+		println!("Root find_or_create");
+		let proot = PersistentRoot::find_or_create();
 		Root {
 			network: proot.network.into_bytes(),
 			name: proot.name.into_bytes(),
