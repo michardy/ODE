@@ -84,7 +84,7 @@ impl Root {
 
 #[typetag::serde]
 impl Node for Root {
-    fn get_node(self, frag:&dyn Fragment) -> Box<dyn Node> {
+    fn get_node(self, frag:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
         todo!()
     }
 

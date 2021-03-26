@@ -33,14 +33,20 @@ struct NativeFragment {
 	parent: u128,
 	#[serde(with = "serde_bytes")]
 	slug: Vec<u8>,
-	format: u64
+	#[serde(with = "serde_bytes")]
+	format: Vec<u8>,
+	version: u64
 }
 
 #[typetag::serde]
-impl Fragment for NativeFragment {}
+impl Fragment for NativeFragment {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
 
 #[derive(Serialize, Deserialize)]
-pub struct NativeNode {
+pub struct NativeNodeV1 {
 	/// Key of parent
 	parent: Option<NativeFragment>,
 	/// Internal ID
@@ -54,9 +60,30 @@ pub struct NativeNode {
 }
 
 #[typetag::serde]
-impl Node for NativeNode {
-	fn get_node(self, fragment:&dyn Fragment) -> Box<dyn Node> {
-		Box::new(self)
+impl Node for NativeNodeV1 {
+	fn get_node(self, fragment:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
+		let node_tree = DB.open_tree(NODE_TREE)
+			.expect("Failure opening the node tree");
+		let nfrag: &NativeFragment = fragment.as_any()
+			.downcast_ref()
+			.ok_or_else(
+				|| Box::new(
+					OperationError::BadMessage(
+						"Message contains wrong type of fragment"
+					)
+				)
+			)?;
+		let key = bytekey_fix::serialize(nfrag)?;
+		match node_tree.get(key)? {
+			Some(v) => Ok(
+				bincode::deserialize::<Box<dyn Node>>(&v)?
+			),
+			None => return Err(
+				Box::new(OperationError::InternalStoreError(
+					"Nativestore inconsistency (rebuild indexes)"
+				))
+			)
+		}
 	}
 	fn get_nodes(self) -> Vec<Box<dyn Fragment>> {
 		self.children
@@ -77,7 +104,7 @@ impl Node for NativeNode {
 							)[..]).into()),
 						None => return Err(
 							Box::new(OperationError::InternalStoreError(
-								"Nativestore inconsistancy (rebuild indexes)"
+								"Nativestore inconsistency (rebuild indexes)"
 							))
 						)
 					},
@@ -110,7 +137,7 @@ impl Node for NativeNode {
 						Some(v) => object = v[..].into(),
 						None => return Err(
 							Box::new(OperationError::InternalStoreError(
-								"Nativestore inconsistancy (rebuild indexes)"
+								"Nativestore inconsistency (rebuild indexes)"
 							))
 						)
 					},
@@ -129,7 +156,7 @@ impl Node for NativeNode {
 				} else {
 					return Err(
 						Box::new(OperationError::InternalStoreError(
-							"Nativestore has not yet implimented writes past EOF"
+							"Nativestore has not yet implemented writes past EOF"
 						))
 					)
 				}
