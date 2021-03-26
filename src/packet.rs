@@ -1,9 +1,9 @@
 use crate::{
-    message::Message,
-    path::Path
+	message::Message,
+	path::Path
 };
 
 pub struct Packet {
-    target: Path,
-    data: Box<Message>
+	target: Path,
+	data: Box<Message>
 }

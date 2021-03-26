@@ -84,19 +84,19 @@ impl Root {
 
 #[typetag::serde]
 impl Node for Root {
-    fn get_node(self, frag:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
-        todo!()
-    }
+	fn get_node(self, frag:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
+		todo!()
+	}
 
-    fn get_nodes(self) -> Vec<Box<dyn Fragment>> {
-        todo!()
-    }
+	fn get_nodes(self) -> Vec<Box<dyn Fragment>> {
+		todo!()
+	}
 
-    fn read(self, start: usize, len:usize) -> Result<Vec<u8>, Box<dyn Error>> {
-        todo!()
-    }
+	fn read(self, start: usize, len:usize) -> Result<Vec<u8>, Box<dyn Error>> {
+		todo!()
+	}
 
-    fn write(self, start: usize, data: Vec<u8>) -> Result<usize, Box<dyn Error>> {
-        todo!()
-    }
+	fn write(self, start: usize, data: Vec<u8>) -> Result<usize, Box<dyn Error>> {
+		todo!()
+	}
 }

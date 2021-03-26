@@ -40,9 +40,15 @@ struct NativeFragment {
 
 #[typetag::serde]
 impl Fragment for NativeFragment {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
+	fn as_any(&self) -> &dyn std::any::Any {
+		self
+	}
+	fn get_slug(&self) -> &Vec<u8> {
+		&self.slug
+	}
+	fn get_format(&self) -> &Vec<u8> {
+		&self.format
+	}
 }
 
 #[derive(Serialize, Deserialize)]
