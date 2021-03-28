@@ -1,15 +1,17 @@
-use crate::{
-	node::{Node,Object},
-	path::{Fragment,Path},
-	operror::OperationError,
-	DB
-};
-
-use std::error::Error;
+//! The nativestore is a tree based store.
+//! It is the basis of the local instance
 
 use {
+	crate::{
+		node::{Node,Object},
+		path::{Fragment,Path},
+		operror::OperationError,
+		DB
+	},
+	std::error::Error,
 	sha3::{Digest, Sha3_256},
-	serde::{Serialize, Deserialize}
+	serde::{Serialize, Deserialize},
+	rand::Rng
 };
 
 
@@ -26,7 +28,7 @@ const GCRC_TREE: &[u8; 22] = b"NATIVESTORE_GCRC_INDEX";
 
 const BLOCK_SIZE: usize = 1024;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 /// Fragment for nativestore
 /// Since we know the storage we don't track it
 struct NativeFragment {
@@ -43,11 +45,17 @@ impl Fragment for NativeFragment {
 	fn as_any(&self) -> &dyn std::any::Any {
 		self
 	}
-	fn get_slug(&self) -> &Vec<u8> {
-		&self.slug
+	fn get_slug(&self) -> Vec<u8> {
+		self.slug.clone()
 	}
-	fn get_format(&self) -> &Vec<u8> {
-		&self.format
+	fn get_handler(&self) -> Vec<u8> {
+		String::from("NativeNode").into_bytes()
+	}
+	fn get_format(&self) -> Vec<u8> {
+		self.format.clone()
+	}
+	fn get_version(&self) -> u64 {
+		self.version.clone()
 	}
 }
 
@@ -58,6 +66,10 @@ pub struct NativeNodeV1 {
 	/// Internal ID
 	/// First part of child keys
 	id: u128,
+	/// name of node
+	slug: Vec<u8>,
+	format: Vec<u8>,
+	version: u64,
 	/// Second part of child keys
 	children: Vec<Box<dyn Fragment>>,
 	// TODO: figure out a way to make this a bytearray
@@ -70,15 +82,14 @@ impl Node for NativeNodeV1 {
 	fn get_node(self, fragment:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
 		let node_tree = DB.open_tree(NODE_TREE)
 			.expect("Failure opening the node tree");
-		let nfrag: &NativeFragment = fragment.as_any()
-			.downcast_ref()
-			.ok_or_else(
-				|| Box::new(
-					OperationError::BadMessage(
-						"Message contains wrong type of fragment"
-					)
-				)
-			)?;
+		let reconstructed: NativeFragment;
+		let nfrag: &NativeFragment = match fragment.as_any().downcast_ref() {
+			Some(f) => f,
+			None => {
+				reconstructed = self.make_fragment_native(fragment);
+				&reconstructed
+			}
+		};
 		let key = bytekey_fix::serialize(nfrag)?;
 		match node_tree.get(key)? {
 			Some(v) => Ok(
@@ -185,6 +196,90 @@ impl Node for NativeNodeV1 {
 			Ok(data.len())
 		} else {
 			Ok(0)
+		}
+	}
+
+	fn create_node(self, fragment:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
+		let nfrag: NativeFragment = match fragment.as_any().downcast_ref::<NativeFragment>() {
+			Some(f) => f.clone(),
+			None => {
+				self.make_fragment_native(fragment)
+			}
+		};
+		if nfrag.parent != self.id {
+			return Err(
+				Box::new(
+					OperationError::BadMessage(
+						"Passed NativeFragment with bad parent to create_node"
+					)
+				)
+			);
+		}
+		let parent = NativeFragment {
+			parent: match self.parent {
+				Some(f) => f.parent,
+				None => 0u128
+			},
+			slug: self.slug,
+			format: self.format,
+			version: self.version,
+		};
+		let child = NativeNodeV1::new(
+			Some(parent),
+			nfrag.clone()
+		);
+		let node_tree = DB.open_tree(NODE_TREE)
+			.expect("Failure opening the node tree");
+		let key = bytekey_fix::serialize(&nfrag)?;
+		let value = bincode::serialize(&child)?;
+		node_tree.insert(key, value)?;
+		Ok(Box::new(child))
+	}
+
+	fn move_node(self, _:&dyn Fragment) -> Result<(), Box<dyn Error>> {
+		todo!()
+	}
+
+	fn link_node(self, _:&dyn Fragment) -> Result<(), Box<dyn Error>> {
+		Err(
+			Box::new(
+				OperationError::NotImplemented(
+					"The nativestore does not implement graph operations like link_node"
+				)
+			)
+		)
+	}
+
+	fn unlink_node(self, _:&dyn Fragment) -> Result<(), Box<dyn Error>> {
+		Err(
+			Box::new(
+				OperationError::NotImplemented(
+					"The nativestore does not implement graph operations like unlink_node"
+				)
+			)
+		)
+	}
+}
+
+impl NativeNodeV1 {
+	fn make_fragment_native(&self, fragment: &dyn Fragment) -> NativeFragment {
+		NativeFragment {
+			parent: self.id,
+			slug: fragment.get_slug(),
+			format: fragment.get_format(),
+			version: fragment.get_version()
+		}
+	}
+	fn new(parent: Option<NativeFragment>, dest: NativeFragment) -> NativeNodeV1 {
+		let mut rng = rand::thread_rng();
+		NativeNodeV1 {
+			parent: parent,
+			id: rng.gen(),
+			slug: dest.slug,
+			format: dest.format,
+			version: dest.version,
+			children: Vec::new(),
+			data: Vec::new()
 		}
 	}
 }

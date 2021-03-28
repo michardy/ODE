@@ -8,6 +8,9 @@ pub enum OperationError {
 	#[error("{0}")]
 	BadMessage(&'static str),
 
+	#[error("{0}")]
+	NotImplemented(&'static str),
+
 	#[error("key was not found")]
 	KeyNotFound
 }

@@ -1,17 +1,16 @@
-use sled::IVec;
-
-use crate::{
-	node::{Node,Object},
-	path::{Fragment,Path},
-	operror::OperationError,
-	DB,
-	BOOT_TREE
-};
-
-use std::error::Error;
+//! The network store is a tree based store
+//! It is the root of the ODE tree.
+//! All instance Nativestores are subtrees of it
 
 use {
-	sha3::{Digest, Sha3_256},
+	crate::{
+		node::{Node,Object},
+		path::{Fragment,Path},
+		operror::OperationError,
+		DB,
+		BOOT_TREE
+	},
+	std::error::Error,
 	serde::{Serialize, Deserialize}
 };
 
@@ -97,6 +96,22 @@ impl Node for Root {
 	}
 
 	fn write(self, start: usize, data: Vec<u8>) -> Result<usize, Box<dyn Error>> {
+		todo!()
+	}
+
+	fn create_node(self, _:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
+		todo!()
+	}
+
+	fn move_node(self, _:&dyn Fragment) -> Result<(), Box<dyn Error>> {
+		todo!()
+	}
+
+	fn link_node(self, _:&dyn Fragment) -> Result<(), Box<dyn Error>> {
+		todo!()
+	}
+
+	fn unlink_node(self, _:&dyn Fragment) -> Result<(), Box<dyn Error>> {
 		todo!()
 	}
 }
