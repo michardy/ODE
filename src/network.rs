@@ -7,6 +7,7 @@ use {
 		node::{Node,Object},
 		path::{Fragment,Path},
 		operror::OperationError,
+		nativestore::NativeNodeV1,
 		DB,
 		BOOT_TREE
 	},
@@ -62,9 +63,39 @@ impl PersistentRoot {
 	}
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+struct RootFragment {
+	level: u8,
+	#[serde(with = "serde_bytes")]
+	slug: Vec<u8>,
+}
+
+#[typetag::serde]
+impl Fragment for RootFragment {
+	fn as_any(&self) -> &dyn std::any::Any {
+		self
+	}
+
+	fn get_slug(&self) -> Vec<u8> {
+		self.slug.clone()
+	}
+
+	fn get_handler(&self) -> Vec<u8> {
+		String::from("Root").into_bytes()
+	}
+
+	fn get_format(&self) -> Vec<u8> {
+		Vec::new()
+	}
+
+	fn get_version(&self) -> u64 {
+		0
+	}
+}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Root {
+	level: u8,
 	network: Vec<u8>,
 	name: Vec<u8>,
 	//conn_cache: HashMap<[u8; 128], Handler>
@@ -75,6 +106,7 @@ impl Root {
 		println!("Root find_or_create");
 		let proot = PersistentRoot::find_or_create();
 		Root {
+			level: 0,
 			network: proot.network.into_bytes(),
 			name: proot.name.into_bytes(),
 		}
@@ -84,7 +116,42 @@ impl Root {
 #[typetag::serde]
 impl Node for Root {
 	fn get_node(self, frag:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
-		todo!()
+		assert!(self.level < 2);
+		if self.level == 0 {
+			if frag.get_slug() == self.network {
+				let mut out = self.clone();
+				out.level = 1;
+				Ok(Box::new(out))
+			} else {
+				Err(
+					Box::new(
+						OperationError::NotImplemented(
+							"Query forwarding not yet implemented"
+						)
+					)
+				)
+			}
+		} else {
+			if frag.get_slug() == self.name {
+				let mut out = self.clone();
+				out.level = 1;
+				match NativeNodeV1::get_root(frag) {
+					Ok(r) => Ok(r),
+					Err(_) => {
+						NativeNodeV1::create_root(frag)?;
+						Ok(NativeNodeV1::get_root(frag)?)
+					}
+				}
+			} else {
+				Err(
+					Box::new(
+						OperationError::NotImplemented(
+							"Query forwarding not yet implemented"
+						)
+					)
+				)
+			}
+		}
 	}
 
 	fn get_nodes(self) -> Vec<Box<dyn Fragment>> {
@@ -92,26 +159,26 @@ impl Node for Root {
 	}
 
 	fn read(self, start: usize, len:usize) -> Result<Vec<u8>, Box<dyn Error>> {
-		todo!()
+		Err(Box::new(OperationError::NotImplemented("Network does not implement read")))
 	}
 
 	fn write(self, start: usize, data: Vec<u8>) -> Result<usize, Box<dyn Error>> {
-		todo!()
+		Err(Box::new(OperationError::NotImplemented("Network does not implement write")))
 	}
 
 	fn create_node(self, _:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
-		todo!()
+		Err(Box::new(OperationError::NotImplemented("Network does not implement create_node")))
 	}
 
 	fn move_node(self, _:&dyn Fragment) -> Result<(), Box<dyn Error>> {
-		todo!()
+		Err(Box::new(OperationError::NotImplemented("Network does not implement move_node")))
 	}
 
 	fn link_node(self, _:&dyn Fragment) -> Result<(), Box<dyn Error>> {
-		todo!()
+		Err(Box::new(OperationError::NotImplemented("Network does not implement link_node")))
 	}
 
 	fn unlink_node(self, _:&dyn Fragment) -> Result<(), Box<dyn Error>> {
-		todo!()
+		Err(Box::new(OperationError::NotImplemented("Network does not implement unlink_node")))
 	}
 }

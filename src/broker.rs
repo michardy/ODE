@@ -1,5 +1,5 @@
 use {
-	crossbeam_channel::{Receiver, Sender},
+	flume::{unbounded, Receiver, Sender},
 	crate::{message::Message, network::Root}
 };
 

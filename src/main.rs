@@ -12,7 +12,7 @@ extern crate lazy_static;
 
 use {
 	std::{thread, time},
-	crossbeam_channel::{unbounded, Receiver, Sender},
+	flume::{unbounded, Receiver, Sender},
 	network::Root,
 	message::Message,
 	broker::broker_loop

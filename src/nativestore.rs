@@ -270,6 +270,14 @@ impl NativeNodeV1 {
 			version: fragment.get_version()
 		}
 	}
+	fn make_floating_native(fragment: &dyn Fragment) -> NativeFragment {
+		NativeFragment {
+			parent: 0,
+			slug: fragment.get_slug(),
+			format: fragment.get_format(),
+			version: fragment.get_version()
+		}
+	}
 	fn new(parent: Option<NativeFragment>, dest: NativeFragment) -> NativeNodeV1 {
 		let mut rng = rand::thread_rng();
 		NativeNodeV1 {
@@ -280,6 +288,45 @@ impl NativeNodeV1 {
 			version: dest.version,
 			children: Vec::new(),
 			data: Vec::new()
+		}
+	}
+	pub fn create_root(dest: &dyn Fragment) -> Result<(), Box<dyn Error>> {
+		let nfrag: NativeFragment = match dest.as_any().downcast_ref::<NativeFragment>() {
+			Some(f) => f.clone(),
+			None => {
+				NativeNodeV1::make_floating_native(dest)
+			}
+		};
+		let child = NativeNodeV1::new(
+			None,
+			nfrag.clone()
+		);
+		let node_tree = DB.open_tree(NODE_TREE)
+			.expect("Failure opening the node tree");
+		let key = bytekey_fix::serialize(&nfrag)?;
+		let value = bincode::serialize(&child)?;
+		node_tree.insert(key, value)?;
+		Ok(())
+	}
+	pub fn get_root(dest: &dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
+		let nfrag: NativeFragment = match dest.as_any().downcast_ref::<NativeFragment>() {
+			Some(f) => f.clone(),
+			None => {
+				NativeNodeV1::make_floating_native(dest)
+			}
+		};
+		let node_tree = DB.open_tree(NODE_TREE)
+			.expect("Failure opening the node tree");
+		let key = bytekey_fix::serialize(&nfrag)?;
+		match node_tree.get(key)? {
+			Some(v) => Ok(
+				bincode::deserialize::<Box<dyn Node>>(&v)?
+			),
+			None => return Err(
+				Box::new(OperationError::InternalStoreError(
+					"Nativestore inconsistency (rebuild indexes)"
+				))
+			)
 		}
 	}
 }
