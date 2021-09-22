@@ -1,4 +1,8 @@
+use std::error::Error;
+
 use thiserror::Error;
+
+use crate::{message::Message, path::Fragment};
 
 #[derive(Error, Debug)]
 pub enum OperationError {
@@ -12,5 +16,8 @@ pub enum OperationError {
 	NotImplemented(&'static str),
 
 	#[error("key was not found")]
-	KeyNotFound
+	KeyNotFound,
+
+	#[error("Escaped from {0}")]
+	ErrorEscape(&'static str)
 }

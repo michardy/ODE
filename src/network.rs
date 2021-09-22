@@ -91,6 +91,14 @@ impl Fragment for RootFragment {
 	fn get_version(&self) -> u64 {
 		0
 	}
+
+	fn inner_borrow(&self) -> &dyn Fragment {
+		self
+	}
+
+	fn inner_clone(&self) -> Box<dyn Fragment+Send+Sync> {
+		Box::new(self.clone())
+	}
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -115,13 +123,13 @@ impl Root {
 
 #[typetag::serde]
 impl Node for Root {
-	fn get_node(self, frag:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
+	fn get_nodes(self, frag:&dyn Fragment) -> Result<Vec<Box<dyn Node+Send+Sync>>, Box<dyn Error>> {
 		assert!(self.level < 2);
 		if self.level == 0 {
 			if frag.get_slug() == self.network {
 				let mut out = self.clone();
 				out.level = 1;
-				Ok(Box::new(out))
+				Ok(vec![Box::new(out)])
 			} else {
 				Err(
 					Box::new(
@@ -136,10 +144,10 @@ impl Node for Root {
 				let mut out = self.clone();
 				out.level = 1;
 				match NativeNodeV1::get_root(frag) {
-					Ok(r) => Ok(r),
+					Ok(r) => Ok(vec![r]),
 					Err(_) => {
 						NativeNodeV1::create_root(frag)?;
-						Ok(NativeNodeV1::get_root(frag)?)
+						Ok(vec![NativeNodeV1::get_root(frag)?])
 					}
 				}
 			} else {
@@ -154,7 +162,7 @@ impl Node for Root {
 		}
 	}
 
-	fn get_nodes(self) -> Vec<Box<dyn Fragment>> {
+	fn list_nodes(self) -> Vec<Box<dyn Fragment>> {
 		todo!()
 	}
 

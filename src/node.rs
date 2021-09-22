@@ -13,8 +13,8 @@ use {
 /// that fragments don't have parent state by default
 #[typetag::serde(tag = "type")]
 pub trait Node {
-	fn get_node(self, _:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>>;
-	fn get_nodes(self) -> Vec<Box<dyn Fragment>>;
+	fn get_nodes(self, _:&dyn Fragment) -> Result<Vec<Box<dyn Node+Send+Sync>>, Box<dyn Error>>;
+	fn list_nodes(self) -> Vec<Box<dyn Fragment>>;
 	fn create_node(self, _:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>>;
 	fn move_node(self, _:&dyn Fragment) -> Result<(), Box<dyn Error>>;
 	fn link_node(self, _:&dyn Fragment) -> Result<(), Box<dyn Error>>;

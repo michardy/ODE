@@ -57,6 +57,12 @@ impl Fragment for NativeFragment {
 	fn get_version(&self) -> u64 {
 		self.version.clone()
 	}
+	fn inner_borrow(&self) -> &dyn Fragment {
+		self
+	}
+	fn inner_clone(&self) -> Box<dyn Fragment+Send+Sync> {
+		Box::new(self.clone())
+	}
 }
 
 #[derive(Serialize, Deserialize)]
@@ -77,9 +83,16 @@ pub struct NativeNodeV1 {
 	data: Vec<Vec<u8>>
 }
 
+// This is a big ugly hack
+// Ideally there should be a way to get `Box<dyn Node+Send+Sync>` from serde de
+/// Used to make Node Boxes from serde Send + Sync
+unsafe fn transmut_node_to_send_sync(boxed: Box<dyn Node>) -> Box<dyn Node+Send+Sync> {
+	Box::from_raw(Box::into_raw(boxed) as *mut (dyn Node + Send + Sync))
+}
+
 #[typetag::serde]
 impl Node for NativeNodeV1 {
-	fn get_node(self, fragment:&dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
+	fn get_nodes(self, fragment:&dyn Fragment) -> Result<Vec<Box<dyn Node+Send+Sync>>, Box<dyn Error>> {
 		let node_tree = DB.open_tree(NODE_TREE)
 			.expect("Failure opening the node tree");
 		let reconstructed: NativeFragment;
@@ -92,9 +105,13 @@ impl Node for NativeNodeV1 {
 		};
 		let key = bytekey_fix::serialize(nfrag)?;
 		match node_tree.get(key)? {
-			Some(v) => Ok(
-				bincode::deserialize::<Box<dyn Node>>(&v)?
-			),
+			Some(v) => Ok(vec![
+				unsafe{
+					transmut_node_to_send_sync(
+						bincode::deserialize::<Box<dyn Node>>(&v)?
+					)
+				}
+			]),
 			None => return Err(
 				Box::new(OperationError::InternalStoreError(
 					"Nativestore inconsistency (rebuild indexes)"
@@ -102,7 +119,7 @@ impl Node for NativeNodeV1 {
 			)
 		}
 	}
-	fn get_nodes(self) -> Vec<Box<dyn Fragment>> {
+	fn list_nodes(self) -> Vec<Box<dyn Fragment>> {
 		self.children
 	}
 	fn read(self, start: usize, len: usize) -> Result<Vec<u8>, Box<dyn Error>> {
@@ -308,7 +325,7 @@ impl NativeNodeV1 {
 		node_tree.insert(key, value)?;
 		Ok(())
 	}
-	pub fn get_root(dest: &dyn Fragment) -> Result<Box<dyn Node>, Box<dyn Error>> {
+	pub fn get_root(dest: &dyn Fragment) -> Result<Box<dyn Node+Send+Sync>, Box<dyn Error>> {
 		let nfrag: NativeFragment = match dest.as_any().downcast_ref::<NativeFragment>() {
 			Some(f) => f.clone(),
 			None => {
@@ -320,7 +337,11 @@ impl NativeNodeV1 {
 		let key = bytekey_fix::serialize(&nfrag)?;
 		match node_tree.get(key)? {
 			Some(v) => Ok(
-				bincode::deserialize::<Box<dyn Node>>(&v)?
+				unsafe {
+					transmut_node_to_send_sync(
+						bincode::deserialize::<Box<dyn Node>>(&v)?
+					)
+				}
 			),
 			None => return Err(
 				Box::new(OperationError::InternalStoreError(

@@ -15,6 +15,8 @@ pub trait Fragment {
 			(self.get_format() == other.get_format()) &&
 			(self.get_version() == other.get_version());
 	}
+	fn inner_borrow(&self) -> &dyn Fragment;
+	fn inner_clone(&self) -> Box<dyn Fragment+Send+Sync>;
 }
 
-pub type Path = Vec<Box<dyn Fragment>>;
+pub type Path = Vec<Box<dyn Fragment+Send+Sync>>;
