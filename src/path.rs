@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, sync::Arc};
 
 #[typetag::serde(tag = "type")]
 pub trait Fragment {
@@ -16,7 +16,7 @@ pub trait Fragment {
 			(self.get_version() == other.get_version());
 	}
 	fn inner_borrow(&self) -> &dyn Fragment;
-	fn inner_clone(&self) -> Box<dyn Fragment+Send+Sync>;
+	fn inner_clone(&self) -> Arc<dyn Fragment+Send+Sync>;
 }
 
-pub type Path = Vec<Box<dyn Fragment+Send+Sync>>;
+pub type Path = Vec<Arc<dyn Fragment+Send+Sync>>;

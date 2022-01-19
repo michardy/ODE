@@ -2,6 +2,8 @@
 //! It is the root of the ODE tree.
 //! All instance Nativestores are subtrees of it
 
+use std::sync::Arc;
+
 use {
 	crate::{
 		node::{Node,Object},
@@ -96,8 +98,8 @@ impl Fragment for RootFragment {
 		self
 	}
 
-	fn inner_clone(&self) -> Box<dyn Fragment+Send+Sync> {
-		Box::new(self.clone())
+	fn inner_clone(&self) -> Arc<dyn Fragment+Send+Sync> {
+		Arc::new(self.clone())
 	}
 }
 

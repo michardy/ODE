@@ -11,7 +11,9 @@ use {
 	std::error::Error,
 	sha3::{Digest, Sha3_256},
 	serde::{Serialize, Deserialize},
-	rand::Rng
+	rand::Rng,
+	shredder::Scan,
+	std::sync::Arc
 };
 
 
@@ -60,8 +62,8 @@ impl Fragment for NativeFragment {
 	fn inner_borrow(&self) -> &dyn Fragment {
 		self
 	}
-	fn inner_clone(&self) -> Box<dyn Fragment+Send+Sync> {
-		Box::new(self.clone())
+	fn inner_clone(&self) -> Arc<dyn Fragment+Send+Sync> {
+		Arc::new(self.clone())
 	}
 }
 

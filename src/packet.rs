@@ -9,6 +9,7 @@ use {
 		node::Node,
 		network::Root
 	},
+	shredder::Scan,
 	std::error::Error
 };
 
