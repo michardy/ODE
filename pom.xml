@@ -24,6 +24,11 @@
 			<artifactId>sbe-tool</artifactId>
 			<version>1.25.1</version>
 		</dependency>
+		<dependency>
+			<groupId>org.lmdbjava</groupId>
+			<artifactId>lmdbjava</artifactId>
+			<version>0.8.2</version>
+		</dependency>
 	</dependencies>
 
 	<build>

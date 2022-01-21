@@ -3,6 +3,7 @@ package nativestore;
 import base.Fragment;
 
 public class NativeFragment implements Fragment {
+
 	@Override
 	public byte[] getSlug() {
 		return new byte[0];

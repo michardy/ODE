@@ -7,7 +7,7 @@ import java.nio.ByteBuffer;
 
 public class NativeNode implements Node {
 	@Override
-	public Fragment listNodes() {
+	public NativeFragment listNodes() {
 		return null;
 	}
 
