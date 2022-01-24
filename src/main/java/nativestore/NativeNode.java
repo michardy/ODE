@@ -12,7 +12,7 @@ public class NativeNode implements Node {
 	}
 
 	@Override
-	public Node getNodes(Fragment f) {
+	public Node[] getNodes(Fragment f) {
 		return null;
 	}
 
